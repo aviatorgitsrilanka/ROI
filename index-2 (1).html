@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROI Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Unbounded:wght@300;400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#0a0a0f;--s1:#111118;--s2:#18181f;--s3:#1e1e2a;
+  --b1:#2a2a38;--b2:#3a3a52;--b3:#4a4a68;
+  --accent:#7c6aff;--accent-dim:rgba(124,106,255,.15);
+  --green:#22d3a0;--green-dim:rgba(34,211,160,.12);
+  --red:#ff4d6a;--red-dim:rgba(255,77,106,.12);
+  --yellow:#f5c542;--blue:#38bdf8;
+  --t1:#e8e8f0;--t2:#8888aa;--t3:#55556a;
+  --mono:'Space Mono',monospace;--head:'Unbounded',sans-serif;
+  --r-sm:8px;--r-md:12px;--r-lg:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--t1);font-family:var(--mono);min-height:100vh;overflow-x:hidden}
+@keyframes scan{0%{top:-2px}100%{top:100vh}}
+.scan{position:fixed;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.1;pointer-events:none;animation:scan 9s linear infinite;z-index:9999}
+.hdr{border-bottom:1px solid var(--b1);padding:16px 36px;display:flex;align-items:center;gap:14px;position:sticky;top:0;background:rgba(10,10,15,.97);backdrop-filter:blur(14px);z-index:100}
+.hdr-logo{font-family:var(--head);font-size:12px;font-weight:800;letter-spacing:.18em;color:var(--accent)}
+.hdr-sep{width:1px;height:16px;background:var(--b2)}
+.hdr-sub{font-size:10px;color:var(--t3);letter-spacing:.1em}
+.hdr-status{margin-left:auto;display:flex;gap:8px;align-items:center}
+.status-pill{font-size:9px;padding:3px 9px;border-radius:20px;border:1px solid var(--b2);color:var(--t3);letter-spacing:.06em;transition:all .2s}
+.status-pill.on{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.main{max-width:1080px;margin:0 auto;padding:36px 24px 80px}
+.hero{margin-bottom:36px}
+.hero-ey{font-size:9px;letter-spacing:.22em;color:var(--accent);text-transform:uppercase;margin-bottom:10px}
+.hero-title{font-family:var(--head);font-size:clamp(24px,4vw,44px);font-weight:800;line-height:1.1;margin-bottom:6px}
+.hero-title span{color:var(--accent)}
+.hero-desc{font-size:11px;color:var(--t2);line-height:1.8}
+
+/* FB multi-file */
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.fb-files-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.fb-file-tag{display:flex;align-items:center;gap:6px;background:var(--green-dim);border:1px solid rgba(34,211,160,.25);border-radius:6px;padding:5px 8px;font-size:10px;color:var(--green);animation:fadeIn .2s ease}
+.fb-file-tag-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fb-file-tag-rm{background:none;border:none;cursor:pointer;color:rgba(34,211,160,.5);font-size:13px;line-height:1;padding:0 2px;flex-shrink:0}
+.fb-file-tag-rm:hover{color:var(--red)}
+.fb-add-btn{display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px dashed var(--b2);border-radius:var(--r-md);padding:12px;cursor:pointer;transition:all .18s;font-size:10px;color:var(--t2);text-align:center;background:none;width:100%}
+.fb-add-btn:hover,.fb-add-btn.drag{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+
+/* FB extra spend + commission */
+.fb-extra{margin-top:10px;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r-md);padding:10px 12px}
+.fb-extra-title{font-size:9px;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+.fb-extra-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.fb-extra-row:last-child{margin-bottom:0}
+.fb-extra-lbl{font-size:9px;color:var(--t2);flex:1;white-space:nowrap}
+.fb-extra-inp{width:90px;background:var(--bg);border:1px solid var(--b2);border-radius:6px;padding:5px 8px;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--t1);outline:none;text-align:right;transition:border .15s}
+.fb-extra-inp:focus{border-color:var(--accent)}
+.fb-extra-inp:not(:placeholder-shown){border-color:var(--green)}
+.fb-commission-badge{font-size:9px;color:var(--yellow);background:rgba(245,197,66,.1);border:1px solid rgba(245,197,66,.25);border-radius:4px;padding:2px 6px;white-space:nowrap}
+.fb-total-row{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--b1)}
+.fb-total-lbl{font-size:9px;color:var(--t3);letter-spacing:.08em;text-transform:uppercase}
+.fb-total-val{font-family:var(--head);font-size:13px;font-weight:700;color:var(--green)}
+
+/* Cab */
+.cab-label{font-size:9px;letter-spacing:.18em;color:var(--t3);text-transform:uppercase;margin-bottom:10px}
+.cab-btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:32px}
+.cab-btn{padding:10px 22px;border:1px solid var(--b2);border-radius:var(--r-md);background:none;cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--t2);transition:all .15s;position:relative}
+.cab-btn:hover{border-color:var(--b3);color:var(--t1)}
+.cab-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.cab-btn .dot{position:absolute;top:6px;right:6px;width:5px;height:5px;border-radius:50%;background:var(--green);opacity:0;transition:opacity .2s}
+.cab-btn.has-data .dot{opacity:1}
+
+/* Upload row */
+.upload-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:28px}
+.upload-col{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r-lg);overflow:hidden;transition:border-color .2s}
+.upload-col.loaded{border-color:var(--green)}
+.upload-col.has-err{border-color:var(--red)}
+.col-head{padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:8px;background:var(--s2)}
+.col-head-icon{font-size:15px}
+.col-head-title{font-family:var(--head);font-size:10px;font-weight:600;flex:1;letter-spacing:.04em}
+.col-head-badge{font-size:9px;padding:2px 6px;border-radius:4px;border:1px solid var(--b2);color:var(--t3)}
+.col-body{padding:14px 16px}
+.drop-zone{border:1.5px dashed var(--b2);border-radius:var(--r-md);padding:18px 12px;text-align:center;cursor:pointer;transition:all .18s;position:relative}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:var(--accent-dim)}
+.drop-zone.loaded{border-style:solid;border-color:var(--green);background:var(--green-dim)}
+.drop-zone.has-err{border-color:var(--red);background:var(--red-dim)}
+.dz-icon{font-size:20px;margin-bottom:6px}
+.dz-hint{font-size:10px;color:var(--t2);line-height:1.5}
+.dz-file{font-size:9px;color:var(--green);margin-top:5px;word-break:break-all;line-height:1.4}
+.dz-err{font-size:9px;color:var(--red);margin-top:4px;line-height:1.4}
+.dz-clr{position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;font-size:14px;color:var(--t3);display:none;line-height:1}
+.dz-clr:hover{color:var(--red)}
+.chat-input-label{font-size:9px;color:var(--t2);margin-bottom:6px;letter-spacing:.06em;display:block}
+.chat-input{width:100%;background:var(--s2);border:1.5px solid var(--b2);border-radius:var(--r-md);padding:12px 14px;font-family:var(--mono);font-size:14px;font-weight:700;color:var(--t1);outline:none;transition:border .15s;text-align:center}
+.chat-input:focus{border-color:var(--accent)}
+.chat-input:not(:placeholder-shown){border-color:var(--green);background:var(--green-dim)}
+.chat-note{font-size:9px;color:var(--t3);margin-top:6px;line-height:1.6;text-align:center}
+
+/* Results */
+.res-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.res-hdr-title{font-size:9px;letter-spacing:.18em;color:var(--t3);text-transform:uppercase}
+.res-hdr-line{flex:1;height:1px;background:var(--b1)}
+.table-card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r-lg);overflow:hidden;margin-bottom:10px}
+.table-card-hdr{padding:12px 18px;border-bottom:1px solid var(--b1);background:var(--s2);display:flex;align-items:center;gap:8px}
+.table-card-hdr-name{font-family:var(--head);font-size:11px;font-weight:600}
+.src-badge{font-size:9px;padding:2px 7px;border-radius:4px;margin-left:2px}
+.src-ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,211,160,.3)}
+.src-no{background:transparent;color:var(--t3);border:1px solid var(--b1)}
+table{width:100%;border-collapse:collapse}
+thead th{padding:8px 14px;font-size:9px;font-weight:400;color:var(--t3);text-align:left;letter-spacing:.1em;border-bottom:1px solid var(--b1);background:var(--s2);text-transform:uppercase;white-space:nowrap}
+tbody td{padding:9px 14px;font-size:11px;color:var(--t1);border-bottom:1px solid var(--b1)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(255,255,255,.015)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.pos{color:var(--green);font-weight:700}
+.neg{color:var(--red);font-weight:700}
+.nd{color:var(--t3);font-style:italic;font-size:10px}
+.badge-promo{display:inline-block;font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(245,197,66,.15);color:var(--yellow);border:1px solid rgba(245,197,66,.3);margin-left:4px;vertical-align:middle}
+.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:28px}
+.metric{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r-md);padding:14px 12px;text-align:center}
+.metric-lbl{font-size:8px;color:var(--t3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}
+.metric-val{font-family:var(--head);font-size:17px;font-weight:800;line-height:1}
+.metric-sub{font-size:8px;color:var(--t3);margin-top:3px}
+
+/* Grand */
+.grand{background:linear-gradient(135deg,rgba(124,106,255,.1),rgba(168,85,247,.04));border:1px solid rgba(124,106,255,.25);border-radius:var(--r-lg);padding:22px;margin-top:8px}
+.grand-title{font-family:var(--head);font-size:11px;font-weight:700;color:var(--accent);margin-bottom:16px;letter-spacing:.05em}
+.grand-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--b1);font-size:11px;transition:opacity .2s}
+.grand-row.hidden-cab{opacity:.28}
+.grand-row:last-of-type{border-bottom:none}
+.grand-stats{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.gs{font-size:10px;color:var(--t2)}
+.gs b{color:var(--t1);font-weight:400}
+/* toggle button in grand row */
+.cab-toggle{background:none;border:1px solid var(--b2);border-radius:5px;cursor:pointer;font-size:9px;padding:2px 8px;color:var(--t3);transition:all .15s;margin-left:8px;font-family:var(--mono)}
+.cab-toggle:hover{border-color:var(--red);color:var(--red)}
+.grand-row.hidden-cab .cab-toggle{border-color:var(--green);color:var(--green)}
+.grand-row.hidden-cab .cab-toggle:hover{border-color:var(--green);color:var(--green)}
+.grand-metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:16px}
+.gm{background:rgba(10,10,15,.6);border-radius:var(--r-sm);padding:12px;text-align:center}
+.gm-lbl{font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px}
+.gm-val{font-family:var(--head);font-size:15px;font-weight:700}
+.empty{text-align:center;padding:50px 20px;color:var(--t3)}
+.empty-ico{font-size:36px;opacity:.3;margin-bottom:10px}
+.empty-txt{font-size:11px;line-height:1.8}
+@media(max-width:680px){
+  .upload-row{grid-template-columns:1fr}
+  .metrics{grid-template-columns:repeat(2,1fr)}
+  .grand-metrics{grid-template-columns:repeat(2,1fr)}
+  .hdr{padding:14px 16px}
+  .main{padding:24px 14px 60px}
+}
+</style>
+</head>
+<body>
+<div class="scan"></div>
+<header class="hdr">
+  <span class="hdr-logo">ROI//CALC</span>
+  <div class="hdr-sep"></div>
+  <span class="hdr-sub">1xBet · Affiliate Analytics</span>
+  <div class="hdr-status">
+    <span class="status-pill" id="st-akula">🦈 Акула</span>
+    <span class="status-pill" id="st-den">👤 Дэн</span>
+    <span class="status-pill" id="st-raketa">🚀 Ракета</span>
+  </div>
+</header>
+
+<main class="main">
+  <div class="hero">
+    <p class="hero-ey">// Traffic Arbitrage Dashboard</p>
+    <h1 class="hero-title">ROI <span>Calculator</span></h1>
+    <p class="hero-desc">Выбери кабинет → загрузи отчёты → получи полный расчёт по ГЕО.</p>
+  </div>
+
+  <p class="cab-label">// 01 · выбери кабинет</p>
+  <div class="cab-btns">
+    <button class="cab-btn active" data-cab="akula">🦈 Акула<span class="dot"></span></button>
+    <button class="cab-btn" data-cab="den">👤 Дэн<span class="dot"></span></button>
+    <button class="cab-btn" data-cab="raketa">🚀 Ракета<span class="dot"></span></button>
+  </div>
+
+  <p class="cab-label">// 02 · загрузи данные · <span id="cab-name-label">акула</span></p>
+  <div class="upload-row">
+
+    <!-- FB Ads -->
+    <div class="upload-col" id="col-fb">
+      <div class="col-head">
+        <span class="col-head-icon">📊</span>
+        <span class="col-head-title">FB Ads</span>
+        <span class="col-head-badge" id="fb-count">xlsx / csv</span>
+      </div>
+      <div class="col-body">
+        <div class="fb-files-list" id="fb-files-list"></div>
+        <button class="fb-add-btn" id="fb-add-btn">
+          <span style="font-size:16px">➕</span>
+          <span>Добавить файл<br><span style="color:var(--t3);font-size:9px">xlsx / csv · несколько кабинетов</span></span>
+        </button>
+        <input type="file" accept=".xlsx,.csv" id="inp-fb" style="display:none" multiple>
+        <p class="dz-err" id="err-fb" style="margin-top:6px"></p>
+
+        <!-- Extra spend + commission block -->
+        <div class="fb-extra">
+          <p class="fb-extra-title">// дополнительно</p>
+          <div class="fb-extra-row">
+            <span class="fb-extra-lbl">Доп. расход ($)</span>
+            <input class="fb-extra-inp" type="number" id="fb-extra-spend" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div class="fb-extra-row">
+            <span class="fb-extra-lbl">Комиссия FB</span>
+            <span class="fb-commission-badge">+4.5%</span>
+          </div>
+          <div class="fb-total-row">
+            <span class="fb-total-lbl">Итог FB с комиссией</span>
+            <span class="fb-total-val" id="fb-total-display">$0.00</span>
+          </div>
+        </div>
+
+        <div style="margin-top:10px;font-size:9px;color:var(--t3);line-height:1.6">
+          Колонки: <span style="color:var(--t2)">Название кампании · Расход</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1xBet -->
+    <div class="upload-col" id="col-xbet">
+      <div class="col-head">
+        <span class="col-head-icon">🎰</span>
+        <span class="col-head-title">1xBet</span>
+        <span class="col-head-badge">xlsx</span>
+      </div>
+      <div class="col-body">
+        <div class="drop-zone" id="dz-xbet">
+          <button class="dz-clr" id="clr-xbet">×</button>
+          <div class="dz-icon">⬆️</div>
+          <p class="dz-hint">Отчёт из партнёрки<br><b>Игроки и депозиты</b></p>
+          <p class="dz-file" id="file-xbet"></p>
+          <p class="dz-err" id="err-xbet"></p>
+          <input type="file" accept=".xlsx" id="inp-xbet" style="display:none">
+        </div>
+        <div style="margin-top:10px;font-size:9px;color:var(--t3);line-height:1.6">
+          Колонки: <span style="color:var(--t2)">Страна · Сумма депозитов · Сумма ставок · SubID</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chatterfy -->
+    <div class="upload-col" id="col-chat">
+      <div class="col-head">
+        <span class="col-head-icon">🤖</span>
+        <span class="col-head-title">Chatterfy</span>
+        <span class="col-head-badge">вручную</span>
+      </div>
+      <div class="col-body">
+        <label class="chat-input-label">Расход Chatterfy (USD)</label>
+        <input class="chat-input" type="number" id="chat-spend" min="0" step="0.01" placeholder="0.00">
+        <p class="chat-note">Выгрузка недоступна —<br>введи сумму вручную</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="res-area">
+    <div class="empty"><div class="empty-ico">📂</div><p class="empty-txt">Загрузи хотя бы один файл —<br>здесь появятся результаты</p></div>
+  </div>
+</main>
+
+<script>
+const FLAGS={Egypt:'🇪🇬',Syria:'🇸🇾',Mauritania:'🇲🇷',Malaysia:'🇲🇾',Algeria:'🇩🇿','Sri Lanka':'🇱🇰'};
+const gf=n=>FLAGS[n]||'🌍';
+const FB_COMMISSION=0.045; // 4.5%
+
+const CABINETS={
+  akula:{label:'🦈 Акула',geos:[{name:'Egypt',minDep:2,cpa:20},{name:'Syria',minDep:3,cpa:30}],promos:[]},
+  den:{label:'👤 Дэн',geos:[{name:'Syria',minDep:3,cpa:30},{name:'Mauritania',minDep:2,cpa:45},{name:'Egypt',minDep:3,cpa:20},{name:'Sri Lanka',minDep:3,cpa:30}],promos:[]},
+  raketa:{label:'🚀 Ракета',geos:[{name:'Mauritania',minDep:5,cpa:40},{name:'Algeria',minDep:3,cpa:45}],promos:[{country:'Egypt',subId:'RKT777',minDep:3,cpa:20},{country:'Egypt',subId:'EGP606',minDep:5,cpa:20}]}
+};
+
+function detectGeo(name){
+  if(!name||typeof name!=='string')return null;
+  const n=name.toLowerCase();
+  if(n.includes('egypt')||n.includes('egp')||n.includes('египет'))return 'Egypt';
+  if(n.includes('syria')||n.includes('syr')||n.includes('сири'))return 'Syria';
+  if(n.includes('maur')||n.includes('маврит'))return 'Mauritania';
+  if((n.includes('mal')&&!n.includes('mali'))||n.includes('малайз'))return 'Malaysia';
+  if(n.includes('sri')||n.includes('шри')||n.includes('lanka')||n.includes('game land'))return 'Sri Lanka';
+  if(n.includes('alg')||n.includes('алжир'))return 'Algeria';
+  return null;
+}
+
+// State: fb = array of {spendByGeo, fileName}
+// hiddenInGrand = set of cabinet keys excluded from grand total
+const state={
+  akula:{fb:[],xbet:null,fbExtraSpend:'',chatSpend:''},
+  den:{fb:[],xbet:null,fbExtraSpend:'',chatSpend:''},
+  raketa:{fb:[],xbet:null,fbExtraSpend:'',chatSpend:''}
+};
+const hiddenInGrand=new Set(); // keys of cabs hidden from grand total
+let activeCab='akula';
+
+// ── Cabinet switcher ──
+document.querySelectorAll('.cab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.cab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    activeCab=btn.dataset.cab;
+    document.getElementById('cab-name-label').textContent=CABINETS[activeCab].label.replace(/[🦈👤🚀]/u,'').trim().toLowerCase();
+    syncZonesToCab();
+    renderResults();
+  });
+});
+
+function syncZonesToCab(){
+  renderFbFilesList();
+  updateFbTotalDisplay();
+  setZoneUI('xbet',state[activeCab].xbet);
+  document.getElementById('fb-extra-spend').value=state[activeCab].fbExtraSpend||'';
+  document.getElementById('chat-spend').value=state[activeCab].chatSpend||'';
+}
+
+// ── FB raw spend from files (sum of all files, by geo) ──
+function getFbRawSpend(k){
+  const merged={};
+  state[k].fb.forEach(f=>{
+    Object.entries(f.spendByGeo).forEach(([geo,s])=>{merged[geo]=(merged[geo]||0)+s;});
+  });
+  return merged;
+}
+function getFbRawTotal(k){
+  return Object.values(getFbRawSpend(k)).reduce((a,b)=>a+b,0);
+}
+
+// FB final spend = (raw from files + extra) * 1.045
+function getFbFinalSpend(k){
+  const raw=getFbRawTotal(k);
+  const extra=parseFloat(state[k].fbExtraSpend)||0;
+  return (raw+extra)*(1+FB_COMMISSION);
+}
+
+function updateFbTotalDisplay(){
+  const k=activeCab;
+  const raw=getFbRawTotal(k);
+  const extra=parseFloat(state[k].fbExtraSpend)||0;
+  const total=(raw+extra)*(1+FB_COMMISSION);
+  const el=document.getElementById('fb-total-display');
+  el.textContent='$'+total.toFixed(2);
+  el.style.color=raw>0||extra>0?'var(--green)':'var(--t3)';
+}
+
+function renderFbFilesList(){
+  const list=document.getElementById('fb-files-list');
+  const files=state[activeCab].fb;
+  const col=document.getElementById('col-fb');
+  const badge=document.getElementById('fb-count');
+  list.innerHTML='';
+  files.forEach((f,i)=>{
+    const tag=document.createElement('div');
+    tag.className='fb-file-tag';
+    tag.innerHTML=`<span class="fb-file-tag-name">✓ ${f.fileName}</span><button class="fb-file-tag-rm" data-idx="${i}">×</button>`;
+    tag.querySelector('.fb-file-tag-rm').addEventListener('click',()=>{
+      state[activeCab].fb.splice(i,1);
+      renderFbFilesList();
+      updateFbTotalDisplay();
+      updateHeaderStatus();
+      updateCabDot(activeCab);
+      renderResults();
+    });
+    list.appendChild(tag);
+  });
+  col.classList.toggle('loaded',files.length>0);
+  badge.textContent=files.length>0?`${files.length} файл${files.length>1?'а':''} ✓`:'xlsx / csv';
+}
+
+// ── FB extra spend input ──
+document.getElementById('fb-extra-spend').addEventListener('input',()=>{
+  state[activeCab].fbExtraSpend=document.getElementById('fb-extra-spend').value;
+  updateFbTotalDisplay();
+  renderResults();
+});
+
+// ── FB multi-file setup ──
+const fbAddBtn=document.getElementById('fb-add-btn');
+const fbInp=document.getElementById('inp-fb');
+fbAddBtn.addEventListener('click',()=>fbInp.click());
+fbAddBtn.addEventListener('dragover',e=>{e.preventDefault();fbAddBtn.classList.add('drag')});
+fbAddBtn.addEventListener('dragleave',()=>fbAddBtn.classList.remove('drag'));
+fbAddBtn.addEventListener('drop',e=>{e.preventDefault();fbAddBtn.classList.remove('drag');[...e.dataTransfer.files].forEach(f=>loadFbFile(f))});
+fbInp.addEventListener('change',e=>{[...e.target.files].forEach(f=>loadFbFile(f));fbInp.value='';});
+
+// ── xbet zone ──
+{
+  const dz=document.getElementById('dz-xbet');
+  const inp=document.getElementById('inp-xbet');
+  const clr=document.getElementById('clr-xbet');
+  dz.addEventListener('click',e=>{if(!e.target.classList.contains('dz-clr'))inp.click()});
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag')});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');loadXbetFile(e.dataTransfer.files[0])});
+  inp.addEventListener('change',e=>{loadXbetFile(e.target.files[0]);inp.value=''});
+  clr.addEventListener('click',e=>{
+    e.stopPropagation();
+    state[activeCab].xbet=null;
+    setZoneUI('xbet',null);
+    updateHeaderStatus();updateCabDot(activeCab);renderResults();
+  });
+}
+
+// ── Chatterfy ──
+document.getElementById('chat-spend').addEventListener('input',()=>{
+  state[activeCab].chatSpend=document.getElementById('chat-spend').value;
+  renderResults();
+});
+
+function setZoneUI(type,data){
+  const dz=document.getElementById('dz-'+type);
+  const col=document.getElementById('col-'+type);
+  const fileEl=document.getElementById('file-'+type);
+  const errEl=document.getElementById('err-'+type);
+  const clr=document.getElementById('clr-'+type);
+  dz.classList.remove('loaded','has-err','drag');
+  col.classList.remove('loaded','has-err');
+  errEl.textContent='';
+  if(data){dz.classList.add('loaded');col.classList.add('loaded');fileEl.textContent='✓ '+data.fileName;clr.style.display='block';}
+  else{fileEl.textContent='';clr.style.display='none';}
+}
+function setZoneErr(type,msg){
+  const dz=document.getElementById('dz-'+type);
+  const col=document.getElementById('col-'+type);
+  document.getElementById('err-'+type).textContent=msg;
+  document.getElementById('file-'+type).textContent='';
+  document.getElementById('clr-'+type).style.display='none';
+  dz.classList.add('has-err');col.classList.add('has-err');
+  dz.classList.remove('loaded');col.classList.remove('loaded');
+}
+
+// ── Parsers ──
+function parseCsv(text){
+  return text.split(/\r?\n/).map(l=>{
+    const cols=[];let cur='',inQ=false;
+    for(let i=0;i<l.length;i++){
+      if(l[i]==='"'){inQ=!inQ;}
+      else if(l[i]===','&&!inQ){cols.push(cur.trim());cur='';}
+      else cur+=l[i];
+    }
+    cols.push(cur.trim());return cols;
+  }).filter(r=>r.some(c=>c!==''));
+}
+
+function loadFbFile(file){
+  if(!file)return;
+  const isCsv=file.name.toLowerCase().endsWith('.csv');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      let raw=isCsv?parseCsv(e.target.result):(()=>{const wb=XLSX.read(e.target.result,{type:'array'});return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});})();
+      let hr=-1;
+      for(let i=0;i<raw.length;i++){if(raw[i].map(c=>String(c).toLowerCase()).some(c=>c.includes('название')||c.includes('campaign'))){hr=i;break;}}
+      if(hr===-1){document.getElementById('err-fb').textContent='Нет колонки с названием кампании: '+file.name;return;}
+      const headers=raw[hr].map(c=>String(c).trim());
+      const nk=headers.findIndex(h=>h.toLowerCase().includes('название')||h.toLowerCase().includes('campaign'));
+      const sk=headers.findIndex(h=>h.toLowerCase().includes('потраченн')||h.toLowerCase().includes('spend')||h.toLowerCase().includes('расход'));
+      if(nk===-1||sk===-1){document.getElementById('err-fb').textContent='Нет колонок Название/Расход: '+file.name;return;}
+      const spendByGeo={};
+      raw.slice(hr+1).forEach(row=>{
+        const geo=detectGeo(String(row[nk]||''));if(!geo)return;
+        const s=parseFloat(String(row[sk]).replace(',','.').replace(/[^0-9.]/g,''))||0;
+        spendByGeo[geo]=(spendByGeo[geo]||0)+s;
+      });
+      const existing=state[activeCab].fb.findIndex(f=>f.fileName===file.name);
+      if(existing>=0)state[activeCab].fb[existing]={spendByGeo,fileName:file.name};
+      else state[activeCab].fb.push({spendByGeo,fileName:file.name});
+      document.getElementById('err-fb').textContent='';
+      renderFbFilesList();updateFbTotalDisplay();updateHeaderStatus();updateCabDot(activeCab);renderResults();
+    }catch(ex){document.getElementById('err-fb').textContent='Ошибка: '+ex.message;}
+  };
+  if(isCsv)reader.readAsText(file,'utf-8');else reader.readAsArrayBuffer(file);
+}
+
+function loadXbetFile(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const raw=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      let hr=-1;
+      for(let i=0;i<raw.length;i++){if(raw[i].some(c=>String(c).includes('Страна'))){hr=i;break;}}
+      if(hr===-1){setZoneErr('xbet','Не найдена колонка «Страна»');return;}
+      const headers=raw[hr].map(c=>String(c).trim());
+      const iC=headers.findIndex(h=>h.includes('Страна'));
+      const iD=headers.findIndex(h=>h.includes('Сумма депозитов'));
+      const iB=headers.findIndex(h=>h.includes('Сумма ставок'));
+      const iS=headers.findIndex(h=>h.toLowerCase().includes('subid'));
+      if(iC===-1||iD===-1){setZoneErr('xbet','Нет колонок: Страна / Сумма депозитов');return;}
+      const rows=raw.slice(hr+1).filter(r=>r[iC]&&String(r[iC]).trim());
+      state[activeCab].xbet={rows,iC,iD,iB,iS,fileName:file.name};
+      setZoneUI('xbet',state[activeCab].xbet);
+      updateHeaderStatus();updateCabDot(activeCab);renderResults();
+    }catch(ex){setZoneErr('xbet','Ошибка: '+ex.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function updateCabDot(k){
+  const btn=document.querySelector(`.cab-btn[data-cab="${k}"]`);if(!btn)return;
+  btn.classList.toggle('has-data',!!(state[k].fb.length||state[k].xbet||(parseFloat(state[k].chatSpend)>0)));
+}
+function updateHeaderStatus(){
+  ['akula','den','raketa'].forEach(k=>{
+    document.getElementById('st-'+k).classList.toggle('on',!!(state[k].fb.length||state[k].xbet));
+  });
+}
+
+// ── Calc ──
+function calcCab(k){
+  const cab=CABINETS[k];
+  const xbet=state[k].xbet;
+  const hasFb=state[k].fb.length>0||parseFloat(state[k].fbExtraSpend)>0;
+
+  // Raw FB spend by geo (from files)
+  const rawSpendByGeo=getFbRawSpend(k);
+  const rawTotal=getFbRawTotal(k);
+  const extra=parseFloat(state[k].fbExtraSpend)||0;
+  // Total FB spend with commission
+  const fbFinalTotal=(rawTotal+extra)*(1+FB_COMMISSION);
+  // Scale each geo proportionally; extra and commission applied proportionally
+  const scaleFactor=rawTotal>0?fbFinalTotal/rawTotal:1;
+
+  const chatSpend=parseFloat(state[k].chatSpend)||0;
+
+  const allGeos=[
+    ...cab.geos.map(g=>({geoName:g.name,label:g.name,minDep:g.minDep,cpa:g.cpa,promo:null})),
+    ...cab.promos.map(p=>({geoName:p.country,label:p.country,minDep:p.minDep,cpa:p.cpa,promo:p.subId}))
+  ];
+
+  let totFbSpend=0,totCpaIncome=0;
+  const rows=allGeos.map(g=>{
+    // Per-geo spend: raw * scale factor (commission applied proportionally)
+    const rawGeoSpend=rawSpendByGeo[g.geoName]||0;
+    let spend=null;
+    if(hasFb){
+      if(rawTotal>0){
+        // distribute extra+commission proportionally by geo
+        spend=rawGeoSpend*scaleFactor;
+      } else {
+        // only extra — apply fully to first geo or distribute equally
+        spend=extra*(1+FB_COMMISSION)/allGeos.length;
+      }
+    }
+    let kpi=0;
+    if(xbet){
+      const{rows:xrows,iC,iD,iB,iS}=xbet;
+      let gr=xrows.filter(r=>String(r[iC]).trim()===g.geoName);
+      if(g.promo){gr=gr.filter(r=>String(r[iS]||'').trim().toUpperCase()===g.promo.toUpperCase());}
+      else if(cab.promos.some(p=>p.country===g.geoName)){
+        const ids=cab.promos.map(p=>p.subId.toUpperCase());
+        gr=gr.filter(r=>!ids.includes(String(r[iS]||'').trim().toUpperCase()));
+      }
+      kpi=gr.filter(r=>{
+        const d=parseFloat(r[iD])||0;
+        const b=iB>=0?(parseFloat(r[iB])||0):d;
+        return d>=g.minDep&&b>=d;
+      }).length;
+    }
+    const income=kpi*g.cpa;
+    if(spend!==null)totFbSpend+=spend;
+    totCpaIncome+=income;
+    const sp=spend!==null?spend:0;
+    const profit=income-sp;
+    const roi=sp>0?(profit/sp*100):null;
+    return{...g,spend,kpi,income,profit,roi,hasFb,hasXbet:!!xbet};
+  });
+
+  const totalSpend=fbFinalTotal+chatSpend;
+  const totalIncome=totCpaIncome;
+  const totalProfit=totalIncome-totalSpend;
+  const totalRoi=totalSpend>0?(totalProfit/totalSpend*100):null;
+  return{rows,fbFinalTotal,totCpaIncome,chatSpend,totalSpend,totalIncome,totalProfit,totalRoi,hasFb,hasXbet:!!xbet,fbCount:state[k].fb.length};
+}
+
+// ── Format helpers ──
+function fp(p){const c=p>=0?'pos':'neg';return`<span class="${c}">${p>=0?'+':'-'}$${Math.abs(p).toFixed(2)}</span>`;}
+function fr(r){if(r===null)return'<span class="nd">—</span>';const c=r>=0?'pos':'neg';return`<span class="${c}">${r>=0?'+':'-'}${Math.abs(r).toFixed(0)}%</span>`;}
+
+// ── Render cab section ──
+function renderCabSection(k){
+  const cab=CABINETS[k];
+  const res=calcCab(k);
+  const cs=res.chatSpend>0;
+  let html=`<div class="table-card">
+    <div class="table-card-hdr">
+      <span class="table-card-hdr-name">${cab.label}</span>
+      <span class="src-badge ${res.hasFb?'src-ok':'src-no'}">FB ${res.hasFb?res.fbCount+' ✓':'—'}</span>
+      <span class="src-badge ${res.hasXbet?'src-ok':'src-no'}">1xBet ${res.hasXbet?'✓':'—'}</span>
+      ${cs?`<span class="src-badge src-ok">Chatterfy ✓</span>`:''}
+    </div>
+    <table><thead><tr>
+      <th>ГЕО</th><th class="num">Расход FB</th><th class="num">Игроков</th>
+      <th class="num">CPA ставка</th><th class="num">Доход CPA</th>
+      <th class="num">Профит</th><th class="num">ROI</th>
+    </tr></thead><tbody>`;
+  res.rows.forEach(g=>{
+    html+=`<tr>
+      <td>${gf(g.geoName)} ${g.label}${g.promo?`<span class="badge-promo">${g.promo}</span>`:''}</td>
+      <td class="num">${g.hasFb?'$'+g.spend.toFixed(2):'<span class="nd">—</span>'}</td>
+      <td class="num">${g.hasXbet?g.kpi:'<span class="nd">—</span>'}</td>
+      <td class="num">$${g.cpa}</td>
+      <td class="num">${g.hasXbet?'$'+g.income.toFixed(2):'<span class="nd">—</span>'}</td>
+      <td class="num">${(g.hasFb&&g.hasXbet)?fp(g.profit):'<span class="nd">—</span>'}</td>
+      <td class="num">${(g.hasFb&&g.hasXbet)?fr(g.roi):'<span class="nd">—</span>'}</td>
+    </tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  html+=`<div class="metrics">
+    <div class="metric"><p class="metric-lbl">Расход FB<br><span style="color:var(--yellow);font-size:8px">вкл. +4.5% комиссия</span></p><p class="metric-val">${res.hasFb?'$'+res.fbFinalTotal.toFixed(2):'<span class="nd" style="font-size:14px">—</span>'}</p></div>
+    <div class="metric"><p class="metric-lbl">Расход Chatterfy</p><p class="metric-val">${cs?'$'+res.chatSpend.toFixed(2):'<span class="nd" style="font-size:14px">—</span>'}</p></div>
+    <div class="metric"><p class="metric-lbl">Доход CPA</p><p class="metric-val">${res.hasXbet?'$'+res.totCpaIncome.toFixed(2):'<span class="nd" style="font-size:14px">—</span>'}</p></div>
+    <div class="metric"><p class="metric-lbl">Профит</p><p class="metric-val">${(res.hasFb&&res.hasXbet)?fp(res.totalProfit):'<span class="nd" style="font-size:14px">—</span>'}</p></div>
+    <div class="metric"><p class="metric-lbl">ROI</p><p class="metric-val">${(res.hasFb&&res.hasXbet)?fr(res.totalRoi):'<span class="nd" style="font-size:14px">—</span>'}</p></div>
+  </div>`;
+  return html;
+}
+
+// ── Render grand total ──
+function renderGrand(){
+  let gSpend=0,gIncome=0;
+  let rowsHtml='';
+  let anyData=false;
+  ['akula','den','raketa'].forEach(k=>{
+    if(!state[k].fb.length&&!state[k].xbet&&!(parseFloat(state[k].chatSpend)>0))return;
+    anyData=true;
+    const res=calcCab(k);
+    const hidden=hiddenInGrand.has(k);
+    if(!hidden){gSpend+=res.totalSpend;gIncome+=res.totalIncome;}
+    const canShow=(res.hasFb||res.chatSpend>0)&&res.hasXbet;
+    rowsHtml+=`<div class="grand-row${hidden?' hidden-cab':''}" id="grand-row-${k}">
+      <span style="display:flex;align-items:center;gap:6px">
+        <span style="font-family:var(--head);font-size:11px;font-weight:600">${CABINETS[k].label}</span>
+        <button class="cab-toggle" onclick="toggleGrandCab('${k}')">${hidden?'+ добавить':'− скрыть'}</button>
+      </span>
+      <div class="grand-stats">
+        <span class="gs">расход <b>$${res.totalSpend.toFixed(2)}</b></span>
+        <span class="gs">доход <b>$${res.totalIncome.toFixed(2)}</b></span>
+        ${canShow?fp(res.totalProfit):'<span class="nd">—</span>'}
+        ${canShow?fr(res.totalRoi):'<span class="nd">—</span>'}
+      </div>
+    </div>`;
+  });
+  if(!anyData)return'';
+  const gProfit=gIncome-gSpend;
+  const gRoi=gSpend>0?(gProfit/gSpend*100):null;
+  const activeCabs=['akula','den','raketa'].filter(k=>!hiddenInGrand.has(k));
+  const gFbSpend=activeCabs.reduce((a,k)=>{const r=calcCab(k);return a+(r.hasFb?r.fbFinalTotal:0);},0);
+  const gChatSpend=activeCabs.reduce((a,k)=>a+(parseFloat(state[k].chatSpend)||0),0);
+  return`<div class="grand">
+    <p class="grand-title">// Общий итог · все кабинеты</p>
+    ${rowsHtml}
+    <div class="grand-metrics" style="margin-top:16px">
+      <div class="gm"><p class="gm-lbl">Расход FB<br><span style="color:var(--yellow);font-size:7px">+4.5%</span></p><p class="gm-val">$${gFbSpend.toFixed(2)}</p></div>
+      <div class="gm"><p class="gm-lbl">Расход Chat</p><p class="gm-val">$${gChatSpend.toFixed(2)}</p></div>
+      <div class="gm"><p class="gm-lbl">Доход CPA</p><p class="gm-val">$${gIncome.toFixed(2)}</p></div>
+      <div class="gm"><p class="gm-lbl">Профит</p><p class="gm-val">${fp(gProfit)}</p></div>
+      <div class="gm"><p class="gm-lbl">ROI</p><p class="gm-val">${fr(gRoi)}</p></div>
+    </div>
+  </div>`;
+}
+
+function toggleGrandCab(k){
+  if(hiddenInGrand.has(k))hiddenInGrand.delete(k);
+  else hiddenInGrand.add(k);
+  renderResults();
+}
+
+// ── Main render ──
+function renderResults(){
+  const area=document.getElementById('res-area');
+  const hasAny=['akula','den','raketa'].some(k=>state[k].fb.length>0||state[k].xbet||(parseFloat(state[k].chatSpend)>0));
+  if(!hasAny){
+    area.innerHTML='<div class="empty"><div class="empty-ico">📂</div><p class="empty-txt">Загрузи хотя бы один файл —<br>здесь появятся результаты</p></div>';
+    return;
+  }
+  let html=`<div class="res-hdr"><span class="res-hdr-title">// результаты · ${CABINETS[activeCab].label}</span><div class="res-hdr-line"></div></div>`;
+  html+=renderCabSection(activeCab);
+  html+=`<div class="res-hdr" style="margin-top:12px"><span class="res-hdr-title">// общий итог</span><div class="res-hdr-line"></div></div>`;
+  html+=renderGrand()||`<p style="color:var(--t3);font-size:11px;padding:10px 0">Загрузи данные по нескольким кабинетам</p>`;
+  area.innerHTML=html;
+}
+</script>
+</body>
+</html>
